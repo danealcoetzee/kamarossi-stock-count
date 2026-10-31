@@ -1,0 +1,1335 @@
+<!doctype html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'">
+<meta name="theme-color" content="#1B5DA6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Kamarossi Stock Count</title>
+<style>
+@font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow";font-weight:500;font-display:swap;src:url(fonts/barlow-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow";font-weight:600;font-display:swap;src:url(fonts/barlow-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow";font-weight:700;font-display:swap;src:url(fonts/barlow-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:600;font-display:swap;src:url(fonts/barlow-condensed-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:700;font-display:swap;src:url(fonts/barlow-condensed-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-display:swap;src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Mono";font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-latin-600-normal.woff2) format("woff2")}
+/* Layout: a one-handed scanner console for the EDA52. Status strip on top, the drum being counted in the middle,
+   keypad and Save under the thumb, four tabs at the bottom. Colours follow the four cable cores in the Kamarossi mark. */
+:root{
+  --bg:#EDF1F5; --surface:#FFFFFF; --surface-2:#F5F7FA; --ink:#0E1620; --muted:#55626F; --line:#D2D9E1;
+  --accent:#1B5DA6; --accent-ink:#FFFFFF; --core:#1E9BD3; --plate:#FFFFFF;
+  --ok:#1F7A36; --ok-bg:#E2F2E6; --warn:#8A5700; --warn-bg:#FFF0D2; --bad:#B3261E; --bad-bg:#FCE6E3; --info:#1B5DA6; --info-bg:#E3EDF8;
+  --key:#E3E9EF; --key-ink:#0E1620; --shade:rgba(10,18,28,.45);
+  --f-ui:"Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-num:"Barlow Condensed", "Barlow", system-ui, sans-serif;
+  --f-code:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0B1015; --surface:#131A21; --surface-2:#19222B; --ink:#E8EDF2; --muted:#98A6B3; --line:#25303B;
+    --accent:#62A6EE; --accent-ink:#06121F; --core:#4CC3F0;
+    --ok:#5ACF79; --ok-bg:#11301B; --warn:#F1B14A; --warn-bg:#33250B; --bad:#FF7D70; --bad-bg:#3A1511; --info:#7FB8F2; --info-bg:#13263A;
+    --key:#1E2832; --key-ink:#E8EDF2; --shade:rgba(0,0,0,.6); color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font:500 17px/1.35 var(--f-ui);-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+img{max-width:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--core);outline-offset:2px}
+.mono{font-family:var(--f-code);font-weight:600;letter-spacing:.01em;overflow-wrap:anywhere}
+#app{height:100%;display:flex;flex-direction:column;max-width:600px;margin:0 auto;background:var(--bg)}
+.gut{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top strip: logo, the area being counted, sending status */
+.top{display:flex;align-items:center;gap:8px;padding-block:5px;background:var(--surface);border-bottom:1px solid var(--line)}
+.plate{background:var(--plate);border-radius:7px;padding:3px 5px;display:inline-flex;flex:none;border:1px solid var(--line)}
+.plate img{height:19px;width:auto;display:block}
+.areabtn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;border:0;background:none;padding:2px 4px;text-align:left;border-radius:8px}
+.areabtn .lbl{font-size:10.5px}
+.areabtn .v{font:600 15px/1.2 var(--f-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.areabtn .v.unset{color:var(--warn)}
+.sync{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:4px 9px;font:600 12.5px var(--f-ui);white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
+.sync i{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block;flex:none}
+.sync.ok i{background:var(--ok)} .sync.warn i{background:var(--warn)}
+
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;overflow:auto;padding-block:8px 12px}
+#v-count{display:flex;flex-direction:column;gap:6px;overflow:hidden;padding-block:6px}
+
+/* count view */
+.lbl{font:600 11px var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.scanrow{display:flex;align-items:center;gap:6px;background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:3px 4px 3px 10px;flex:none}
+.scanrow.ready{border-color:var(--ok)}
+.scanrow.typing{border-color:var(--accent)}
+.dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--muted)}
+.scanrow.ready .dot{background:var(--ok)}
+#scan{flex:1;min-width:0;border:0;background:transparent;font:600 18px var(--f-code);color:var(--ink);padding:9px 0;outline:none;text-transform:uppercase}
+#scan::placeholder{font-family:var(--f-ui);font-weight:500;text-transform:none;color:var(--muted)}
+.mini{flex:none;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:0 12px;height:38px;font:600 15px var(--f-ui);display:inline-flex;align-items:center;justify-content:center}
+.mini svg{width:22px;height:22px}
+.mini.cam{padding:0 10px;background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.card{flex:1;min-height:0;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:7px}
+.empty{display:flex;flex-direction:column;gap:6px;justify-content:center;flex:1}
+.empty .big{font:700 23px/1.1 var(--f-num);margin:0}
+.empty p{margin:0;color:var(--muted);font-size:15.5px}
+.k8sum{font-size:14px;color:var(--muted);margin:0}
+.idrow{display:flex;align-items:center;gap:8px}
+.idrow b{font:700 22px/1 var(--f-num);letter-spacing:.03em;white-space:nowrap}
+.idrow .code{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.morebtn{flex:none;width:44px;height:34px;border:1px solid var(--line);background:var(--surface-2);border-radius:8px;display:inline-flex;align-items:center;justify-content:center}
+.morebtn svg{width:20px;height:20px}
+.code{font:600 14.5px var(--f-code)}
+.desc{font-size:14.5px;color:var(--muted);line-height:1.25}
+.card .desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.batch{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.batch .mono{font-size:21px}
+.k8{font-size:13.5px;color:var(--muted)}
+.cl{font-size:14px;line-height:1.3;padding:4px 0 4px 9px;border-left:4px solid var(--line)}
+.cl.ok{border-color:var(--ok)} .cl.warn{border-color:var(--warn)} .cl.bad{border-color:var(--bad)} .cl.info{border-color:var(--info)}
+.tag{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:2px 7px;font:600 12.5px var(--f-ui);background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.tag.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.tag.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+.tag.bad{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+.tag.info{background:var(--info-bg);color:var(--info);border-color:transparent}
+.ban{border-radius:10px;padding:9px 11px;font-size:15px;line-height:1.3;border-left:5px solid}
+.ban.ok{background:var(--ok-bg);border-color:var(--ok)}
+.ban.warn{background:var(--warn-bg);border-color:var(--warn)}
+.ban.bad{background:var(--bad-bg);border-color:var(--bad)}
+.ban.info{background:var(--info-bg);border-color:var(--info)}
+.ban b{font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.btn{border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 14px;font:600 15.5px var(--f-ui);min-height:44px}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.bad{background:var(--bad);color:var(--surface);border-color:transparent}
+.btn.small{min-height:36px;padding:6px 10px;font-size:14px}
+.btn:disabled{opacity:.5}
+.photos{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.thumb{position:relative;width:52px;height:52px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--surface-2);flex:none;padding:0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb span{position:absolute;left:0;right:0;bottom:0;font:600 10.5px var(--f-ui);background:var(--shade);color:#fff;text-align:center;padding:1px 0}
+.err{color:var(--bad);font-weight:600;font-size:14.5px}
+.qtybar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 2px;flex:none}
+.qtybar .lbl{display:block}
+.qty{font:700 34px/1 var(--f-num);font-variant-numeric:tabular-nums}
+.qty small{font:600 18px var(--f-num);color:var(--muted);margin-left:4px}
+.pad{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:none}
+.pad button{height:46px;border:0;border-radius:10px;background:var(--key);color:var(--key-ink);font:600 25px var(--f-num);display:flex;align-items:center;justify-content:center}
+.pad button:active{filter:brightness(.92)}
+.pad .w2{grid-column:span 2}
+.pad .fn{font:600 16px var(--f-ui)}
+.pad .save{background:var(--accent);color:var(--accent-ink);font:700 21px var(--f-ui)}
+.pad svg{width:28px;height:28px}
+
+/* tabs */
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--line)}
+.tabs button{height:48px;border:0;background:none;color:var(--muted);font:600 15px var(--f-ui);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.1}
+.tabs button small{font:600 12px var(--f-ui);font-variant-numeric:tabular-nums}
+.tabs button[aria-current="page"]{color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+
+/* lists */
+h2{font:700 24px/1.1 var(--f-num);letter-spacing:.02em;margin:2px 0 4px;text-wrap:balance}
+.sub{color:var(--muted);font-size:14.5px;margin:0 0 10px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chipbtn{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font:600 14px var(--f-ui)}
+.chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.search{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 12px;font:500 16px var(--f-ui);margin-bottom:10px}
+.items{display:flex;flex-direction:column;gap:6px}
+.item{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:9px 11px}
+.item[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.item .r1{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.item .r1 .mono{font-size:16.5px}
+.item .q{font:700 20px var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.item .r2{font-size:14px;color:var(--muted);margin-top:2px}
+.item .r3{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;align-items:center;font-size:13px;color:var(--muted)}
+.item.void{opacity:.55}
+.item.void .mono{text-decoration:line-through}
+.pagehd{font:700 13px var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 2px 2px}
+.findrow{display:grid;grid-template-columns:44px 1fr;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;align-items:baseline}
+.findrow .ln{font:600 14px var(--f-code);color:var(--muted)}
+.findrow .mono{font-size:16px}
+.findrow .pc{font-size:13.5px;color:var(--muted)}
+.findrow.done{opacity:.5}
+.findrow.done .mono{text-decoration:line-through}
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 10px}
+.stat div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font:700 26px/1 var(--f-num);font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted)}
+.bar{height:8px;border-radius:99px;background:var(--key);overflow:hidden;margin:-2px 0 12px}
+.bar i{display:block;height:100%;background:var(--ok)}
+
+/* setup and load */
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.sec h3{margin:0;font:700 19px var(--f-num);letter-spacing:.03em;text-transform:uppercase}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font:600 13px var(--f-ui);color:var(--muted)}
+.field input,.field textarea{border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:10px;padding:10px 12px;font:500 17px var(--f-ui)}
+#code{font:600 20px var(--f-code);letter-spacing:.06em;text-transform:uppercase}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.checks label{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--surface-2);font-size:15px}
+.checks input{width:20px;height:20px;accent-color:var(--accent)}
+.checks small{color:var(--muted);font-size:12.5px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:15px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.note{font-size:14.5px;color:var(--muted);margin:0}
+.steps{margin:0;padding-left:20px;font-size:15px;display:flex;flex-direction:column;gap:3px}
+.brandhd{display:flex;align-items:center;gap:10px;margin:8px 0 14px}
+.brandhd .plate img{height:28px}
+
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;justify-content:flex-end}
+.sheet-back{position:absolute;inset:0;background:var(--shade)}
+.sheet-body{position:relative;background:var(--surface);border-radius:16px 16px 0 0;max-height:88%;overflow:auto;padding-block:14px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 30px var(--shade);max-width:600px;width:100%;margin:0 auto}
+.sheet-body h3{margin:0 0 8px;font:700 22px var(--f-num);letter-spacing:.02em;padding-right:70px}
+.sheet-x{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:10px;border:1px solid var(--line);background:var(--surface-2);border-radius:9px;padding:6px 10px;font:600 14px var(--f-ui)}
+.res{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+.res button{text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.res .code,.res b{display:block}
+.res .desc{display:block}
+.bigph{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+.phgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.phgrid button{padding:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;aspect-ratio:1;max-width:100%;background:var(--surface-2);position:relative}
+.phgrid img{width:100%;height:100%;object-fit:cover;display:block}
+.phgrid span{position:absolute;left:0;right:0;bottom:0;font:600 11px var(--f-ui);background:var(--shade);color:#fff;padding:1px 0;text-align:center}
+.minipad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.minipad button{height:48px;border:0;border-radius:10px;background:var(--key);color:var(--key-ink);font:600 24px var(--f-num)}
+.parts{display:flex;flex-direction:column;gap:6px}
+.parts .btn{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(6px + env(safe-area-inset-top,0px));z-index:40;background:var(--ink);color:var(--surface);border-radius:12px;padding:10px 16px;font:600 15.5px var(--f-ui);box-shadow:0 6px 24px var(--shade);max-width:calc(100% - 32px)}
+.toast.bad{background:var(--bad);color:var(--surface)}
+.loading{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);text-align:center;padding:20px}
+@media (min-height:760px){.pad button{height:54px}.qty{font-size:38px}}
+@media (max-height:600px){.pad button{height:41px}.qty{font-size:30px}.tabs button{height:44px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top gut" id="top">
+    <span class="plate"><img src="logo.jpg" alt="Kamarossi"></span>
+    <button class="areabtn" data-act="area"><span class="lbl">Area</span><span class="v unset" id="areaVal">Set the area</span></button>
+    <button class="sync" id="sendChip" data-act="send"><i></i><span>Nothing to send</span></button>
+  </header>
+
+  <main>
+    <section id="v-load" class="view gut" aria-label="Load a count" hidden>
+      <div class="brandhd"><span class="plate"><img src="logo.jpg" alt="Kamarossi"></span><b class="lbl">Stock count</b></div>
+      <h2>Open a count</h2>
+      <p class="sub">Pick the count, then type the count code you were given. You only do this once per count on each device.</p>
+      <div class="items" id="loadList"><p class="note">Looking for counts…</p></div>
+      <div class="field" style="margin-top:12px"><label for="code">Count code</label><input id="code" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="ABCDE-12345"></div>
+      <div class="row"><button class="btn pri" data-act="unlock" id="unlockBtn">Open the count</button><button class="btn" data-act="load-cancel" id="loadCancel" hidden>Cancel</button></div>
+      <p class="note" id="loadMsg" style="margin-top:10px"></p>
+    </section>
+
+    <section id="v-count" class="view gut" aria-label="Count" hidden>
+      <div class="scanrow" id="scanrow">
+        <span class="dot" aria-hidden="true"></span>
+        <input id="scan" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="Tap here, then scan" aria-label="Scanned barcode">
+        <button class="mini" data-act="type" id="typeBtn">Type</button>
+        <button class="mini cam" data-act="photo" data-kind="label" aria-label="Photo of the label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+      </div>
+      <div class="card" id="card"><div class="loading">Loading…</div></div>
+      <div class="qtybar" id="qtybar">
+        <div><span class="lbl" id="qtyLbl">Metres</span><div class="qty" id="qtyVal">0<small>m</small></div></div>
+      </div>
+      <div class="pad" id="pad">
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="bk" aria-label="Delete last digit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M17 9l-6 6M11 9l6 6"/></svg></button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="clr" class="fn">Clear</button>
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k=".">.</button>
+        <button data-k="0" class="w2">0</button>
+        <button data-act="save" class="w2 save" id="saveBtn">Save</button>
+      </div>
+    </section>
+
+    <section id="v-list" class="view gut" aria-label="Counted" hidden></section>
+    <section id="v-find" class="view gut" aria-label="To find" hidden></section>
+    <section id="v-setup" class="view gut" aria-label="Setup" hidden></section>
+  </main>
+
+  <nav class="tabs gut" id="tabs" aria-label="Views">
+    <button data-tab="count" aria-current="page">Count</button>
+    <button data-tab="list">Counted<small id="nList"></small></button>
+    <button data-tab="find">To find<small id="nFind"></small></button>
+    <button data-tab="setup">Setup</button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-back" data-act="close"></div>
+    <div class="sheet-body gut" role="dialog" aria-modal="true"><button class="sheet-x" data-act="close">Close</button><div id="sheetIn"></div></div>
+  </div>
+  <input type="file" id="cam" accept="image/*" capture="environment" hidden>
+</div>
+
+<script>
+(() => {
+'use strict';
+const APPV = '2.0';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const norm = s => String(s ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+const compact = s => norm(s).replace(/[^A-Z0-9]/g, '');
+const UNIT = {MT: 'm', EA: 'ea', KG: 'kg'};
+const UNITW = {MT: 'Metres', EA: 'Quantity', KG: 'Kilograms'};
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('kamcount.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('kamcount.' + k, JSON.stringify(v)); } catch (e) { /* storage off */ } },
+};
+const rnd = n => Math.random().toString(36).slice(2, 2 + n);
+const fmtQty = q => (Math.round(Number(q) * 100) / 100).toLocaleString('en-ZA', {maximumFractionDigits: 2}).replace(/ /g, ' ');
+const hhmm = iso => { try { return new Date(iso).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit'}); } catch (e) { return ''; } };
+const dmy = iso => { try { const d = new Date(iso); return d.toLocaleDateString('en-ZA', {day: '2-digit', month: 'short'}) + ' ' + hhmm(iso); } catch (e) { return ''; } };
+const pad2 = n => String(n).padStart(2, '0');
+const stamp = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}${pad2(d.getMinutes())}`;
+const nowIso = () => new Date().toISOString();
+
+/* ---------- state ---------- */
+const S = {
+  list: null, idx: null, countId: '', gname: {}, counts: [], pickCount: '',
+  setup: Object.assign({team: '', store: '', device: '', groups: null}, LS.get('setup', {})),
+  area: LS.get('area', ''), areas: LS.get('areas', []),
+  cur: null, held: null, recs: new Map(),
+  tab: 'count', typing: false, lastScan: null,
+  listFilter: 'all', listQ: '', listN: 150, findQ: '', findAll: false,
+  persisted: null, sendParts: null, sendAll: false,
+};
+if (!S.setup.device) { S.setup.device = 'EDA52-' + rnd(3).toUpperCase(); LS.set('setup', S.setup); }
+const devTag = () => (S.setup.device || 'dev').replace(/[^A-Za-z0-9-]/g, '').slice(0, 20) || 'dev';
+const newId = () => `${devTag()}-${Date.now().toString(36)}-${rnd(4)}`;
+
+/* ---------- device store (IndexedDB, memory fallback) ---------- */
+const Store = (() => {
+  const mem = {recs: new Map(), photos: new Map(), meta: new Map()};
+  let dbp = null, ok = true;
+  function open() {
+    if (!ok) return Promise.reject(new Error('off'));
+    if (!dbp) {
+      dbp = new Promise((res, rej) => {
+        try {
+          const r = indexedDB.open('kamarossi-stock-count', 1);
+          r.onupgradeneeded = () => {
+            const d = r.result;
+            if (!d.objectStoreNames.contains('recs')) d.createObjectStore('recs', {keyPath: 'id'});
+            if (!d.objectStoreNames.contains('photos')) d.createObjectStore('photos');
+            if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta');
+          };
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error);
+          r.onblocked = () => rej(new Error('blocked'));
+        } catch (e) { rej(e); }
+      }).catch(e => { ok = false; throw e; });
+    }
+    return dbp;
+  }
+  function run(store, mode, fn) {
+    return open().then(d => new Promise((res, rej) => {
+      const t = d.transaction(store, mode), s = t.objectStore(store);
+      let r; try { r = fn(s); } catch (e) { rej(e); return; }
+      t.oncomplete = () => res(r ? r.result : undefined);
+      t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+  }
+  return {
+    async put(store, val, key) {
+      try { await run(store, 'readwrite', s => key === undefined ? s.put(val) : s.put(val, key)); }
+      catch (e) { mem[store].set(key === undefined ? val.id : key, val); }
+    },
+    async get(store, key) {
+      try { const v = await run(store, 'readonly', s => s.get(key)); return v !== undefined ? v : mem[store].get(key); }
+      catch (e) { return mem[store].get(key); }
+    },
+    async del(store, key) { mem[store].delete(key); try { await run(store, 'readwrite', s => s.delete(key)); } catch (e) { /* ignore */ } },
+    async all(store) {
+      let a = []; try { a = (await run(store, 'readonly', s => s.getAll())) || []; } catch (e) { /* ignore */ }
+      for (const v of mem[store].values()) if (!a.some(x => x.id === v.id)) a.push(v);
+      return a;
+    },
+    durable: () => ok,
+  };
+})();
+
+/* ---------- K8 list and lookups ---------- */
+function buildIndex(list) {
+  const batch = new Map(), tok = new Map(), comp = new Map(), prod = new Map(), byLid = new Map(), byCode = new Map();
+  const add = (m, k, i) => { if (!k) return; const a = m.get(k); if (a) { if (!a.includes(i)) a.push(i); } else m.set(k, [i]); };
+  list.lines.forEach((L, i) => {
+    byLid.set(L[0], i); add(byCode, L[1], i);
+    const b = norm(L[2]); if (!b) return;
+    add(batch, b, i); add(tok, b.split(' ')[0], i); add(comp, compact(b), i);
+  });
+  for (const c of Object.keys(list.products)) prod.set(norm(c), c);
+  return {batch, tok, comp, prod, byLid, byCode};
+}
+const line = i => S.list.lines[i];
+const lineByLid = lid => { const i = S.idx.byLid.get(lid); return i === undefined ? null : S.list.lines[i]; };
+const grpOf = code => String(code || '').split('/')[0];
+const gname = g => S.gname[g] || g;
+const pageLine = lid => { const p = String(lid || '').split('-'); return p.length === 3 ? `page ${+p[1]} · line ${+p[2]}` : ''; };
+const prodInfo = code => (code && S.list.products[code]) || null;
+const hasBatchLines = code => (S.idx.byCode.get(code) || []).some(i => norm(line(i)[2]));
+const selGroups = () => (S.setup.groups && S.setup.groups.length ? S.setup.groups : S.list.count.groups);
+
+function matchBatch(raw) {
+  const v = norm(raw); if (!v) return {kind: 'none', lines: []};
+  let L = S.idx.batch.get(v); if (L) return {kind: 'exact', lines: L};
+  const t = v.split(' ')[0];
+  if (t.length >= 4) { L = S.idx.tok.get(t); if (L) return {kind: 'token', lines: L}; }
+  if (v.length > 24) { L = S.idx.batch.get(v.slice(0, 24).trim()); if (L) return {kind: 'prefix', lines: L}; }
+  const c = compact(v); if (c.length >= 5) { L = S.idx.comp.get(c); if (L) return {kind: 'compact', lines: L}; }
+  return {kind: 'none', lines: []};
+}
+
+/* ---------- records on this device ---------- */
+const recs = () => [...S.recs.values()].filter(r => r && r.count === S.countId);
+const live = () => recs().filter(r => !r.void);
+const unsent = r => !r.sentAt || (r.changedAt && r.changedAt > r.sentAt);
+function countedFor(cur) {
+  if (!cur) return [];
+  const others = live().filter(r => r.id !== cur.id);
+  if (cur.line) {
+    const L = lineByLid(cur.line);
+    if (L && !norm(L[2])) return [];
+    return others.filter(r => r.line === cur.line);
+  }
+  if (cur.batch) { const b = norm(cur.batch); return others.filter(r => norm(r.batch) === b); }
+  return [];
+}
+const lineCounted = (lid, exceptId) => live().some(r => r.id !== exceptId && r.line === lid);
+
+/* ---------- the drum being counted ---------- */
+function blankCur() {
+  return {id: newId(), product: '', productRaw: '', productSrc: '', batch: '', batchRaw: '', batchSrc: '', match: '',
+    line: '', cands: null, multi: false, photos: [], qty: '', note: '', unknown: '', dupOk: false, ackMismatch: false, err: '', scans: []};
+}
+function ensureCur() { if (!S.cur) S.cur = blankCur(); return S.cur; }
+const hasData = c => !!(c && (c.batch || c.qty || c.photos.length || c.note || (c.product && c.productSrc !== 'scan')));
+function persistCur() {
+  if (!S.cur) { LS.set('cur', null); return; }
+  LS.set('cur', Object.assign({}, S.cur, {count: S.countId, photos: S.cur.photos.map(p => ({key: p.key, kind: p.kind}))}));
+}
+async function restoreCur(c) {
+  if (!c || !c.id || c.count !== S.countId) return;
+  const cur = Object.assign(blankCur(), c, {photos: []});
+  for (const p of (c.photos || [])) { const b = await Store.get('photos', p.key); if (b) cur.photos.push({key: p.key, kind: p.kind, url: URL.createObjectURL(b)}); }
+  S.cur = cur;
+}
+function chooseLine(cands, product) {
+  let c = cands;
+  if (product) { const f = c.filter(i => line(i)[1] === product); if (f.length) c = f; }
+  const prods = [...new Set(c.map(i => line(i)[1]))];
+  if (prods.length > 1) return {need: true, cands: c};
+  const free = c.find(i => !lineCounted(line(i)[0], S.cur && S.cur.id));
+  return {line: free !== undefined ? free : c[0], multi: c.length > 1};
+}
+function setBatch(m, raw, src) {
+  const cur = ensureCur();
+  cur.batchRaw = raw; cur.batchSrc = src; cur.match = m.kind; cur.unknown = ''; cur.dupOk = false; cur.err = '';
+  if (m.kind === 'none') { cur.batch = norm(raw); cur.line = ''; cur.cands = null; cur.multi = false; return; }
+  const ch = chooseLine(m.lines, cur.productSrc === 'scan' || cur.productSrc === 'pick' ? cur.product : '');
+  if (ch.need) { cur.cands = ch.cands; cur.batch = line(ch.cands[0])[2]; cur.line = ''; return; }
+  const L = line(ch.line);
+  cur.line = L[0]; cur.batch = L[2]; cur.multi = ch.multi; cur.cands = null;
+  if (!cur.product) { cur.product = L[1]; cur.productSrc = 'batch'; }
+}
+function pickCand(i) {
+  const cur = S.cur; if (!cur) return;
+  const L = line(i); cur.line = L[0]; cur.batch = L[2]; cur.cands = null;
+  if (!cur.product || cur.productSrc === 'batch') { cur.product = L[1]; cur.productSrc = 'batch'; }
+  const same = (S.idx.batch.get(norm(L[2])) || []).filter(j => line(j)[1] === L[1]);
+  const free = same.find(j => !lineCounted(line(j)[0], cur.id));
+  if (free !== undefined) cur.line = line(free)[0];
+  cur.multi = same.length > 1;
+}
+function issues(cur) {
+  const out = [];
+  if (!cur) return out;
+  const L = cur.line ? lineByLid(cur.line) : null;
+  if (cur.unknown) out.push({k: 'unknown', lvl: 'warn'});
+  if (cur.cands) out.push({k: 'cands', lvl: 'warn'});
+  if (L && cur.product && L[1] !== cur.product && (cur.productSrc === 'scan' || cur.productSrc === 'pick')) out.push({k: 'other_product', lvl: 'bad'});
+  if (cur.batch && !cur.line && !cur.cands) out.push({k: 'not_in_k8', lvl: 'warn'});
+  if (!cur.batch && !cur.line && cur.product && hasBatchLines(cur.product)) out.push({k: 'need_batch', lvl: 'info'});
+  if (!cur.batch && !cur.product && cur.photos.length) out.push({k: 'no_label', lvl: 'warn'});
+  if (L && !selGroups().includes(grpOf(L[1]))) out.push({k: 'other_group', lvl: 'info'});
+  const dup = countedFor(cur);
+  if (dup.length && !cur.dupOk) out.push({k: 'dup', lvl: 'bad'});
+  return out;
+}
+const needsPhoto = cur => {
+  const ks = issues(cur).map(x => x.k);
+  return ks.includes('other_product') || ks.includes('not_in_k8') || ks.includes('no_label') || cur.batchSrc === 'typed' || (!cur.batch && !cur.line);
+};
+function unitOf(cur) {
+  const code = cur.product || (cur.line ? (lineByLid(cur.line) || [])[1] : '');
+  const p = prodInfo(code); return p ? p[1] : 'MT';
+}
+function saveBlock(cur, force) {
+  if (!cur || !(cur.batch || cur.product || cur.photos.length)) return 'Scan the label, type the batch, or pick the product first.';
+  const iss = issues(cur).map(x => x.k);
+  if (iss.includes('dup')) return 'This was counted already. Choose Same drum or Another piece.';
+  if (iss.includes('cands')) return 'Pick the product for this batch.';
+  if (cur.unknown) return 'Say what the scanned code is first.';
+  if (!(Number(cur.qty) > 0)) return `Enter the ${unitOf(cur) === 'MT' ? 'metres' : 'quantity'}.`;
+  if (!force && needsPhoto(cur) && !cur.photos.some(p => p.kind === 'label')) return 'PHOTO';
+  return '';
+}
+function flagsFor(cur, force) {
+  const f = new Set(issues(cur).map(x => x.k).filter(k => ['other_product', 'not_in_k8', 'no_label', 'other_group'].includes(k)));
+  if (!cur.batch && (!cur.product || hasBatchLines(cur.product))) f.add('no_label');
+  if (cur.dupOk) f.add('piece');
+  if (cur.batchSrc === 'typed') f.add('typed');
+  if (cur.multi) f.add('batch_on_several_k8_lines');
+  if (cur.match && !['exact', 'none', ''].includes(cur.match)) f.add('match_' + cur.match);
+  if (force) f.add('no_photo');
+  return [...f];
+}
+
+/* ---------- scanning ---------- */
+function onScan(raw, src) {
+  raw = String(raw || '').replace(/[\r\n\t]+/g, ' ').trim();
+  if (!raw || !S.list) return;
+  S.lastScan = {raw, at: Date.now(), src, len: raw.length};
+  const v = norm(raw);
+  if (/^LOC[:\-]/.test(v)) { setArea(raw.replace(/^LOC[:\-]\s*/i, '')); beep('ok'); toast('Area: ' + S.area); renderCount(); return; }
+  const code = S.idx.prod.get(v);
+  const m = code ? null : matchBatch(v);
+  const cur = S.cur;
+  if (cur && hasData(cur)) {
+    const sameBatch = m && cur.batch && (norm(cur.batch) === v || (m.kind !== 'none' && m.lines.some(i => norm(line(i)[2]) === norm(cur.batch))));
+    const newDrum = (code && cur.product && code !== cur.product && cur.qty) ||
+                    (m && cur.batch && !sameBatch) ||
+                    (m && m.kind !== 'none' && !cur.batch && cur.qty && cur.product && !m.lines.some(i => line(i)[1] === cur.product));
+    if (newDrum) { S.held = {raw, src}; beep('warn'); renderCount(); return; }
+  }
+  const c0 = ensureCur(); c0.scans = (c0.scans || []).concat([raw]).slice(-6);
+  if (code) { gotProduct(code, raw); return; }
+  if (m.kind !== 'none') { setBatch(m, raw, src === 'typed' ? 'typed' : 'scan'); afterChange(true); return; }
+  if (src === 'typed') { setBatch(m, raw, 'typed'); afterChange(false); return; }
+  c0.unknown = raw; beep('warn'); afterChange(false);
+}
+function gotProduct(code, raw) {
+  const cur = ensureCur();
+  cur.product = code; cur.productRaw = raw; cur.productSrc = 'scan'; cur.err = ''; cur.ackMismatch = false;
+  if (cur.cands) { const f = cur.cands.filter(i => line(i)[1] === code); if (f.length) pickCand(f[0]); }
+  if (!cur.batch && !hasBatchLines(code)) { const ls = S.idx.byCode.get(code) || []; if (ls.length) cur.line = line(ls[0])[0]; }
+  afterChange(true);
+}
+function afterChange(okBeep) {
+  const lv = issues(S.cur).map(x => x.lvl);
+  if (lv.includes('bad')) { beep('bad'); buzz([120, 80, 120]); }
+  else if (lv.includes('warn')) beep('warn');
+  else if (okBeep) beep('ok');
+  persistCur(); renderCount();
+}
+async function resolveHeld(action) {
+  const h = S.held; S.held = null;
+  if (action === 'cancel' || !h) { renderCount(); return; }
+  if (action === 'discard') { clearCur(); onScan(h.raw, h.src); return; }
+  if (action === 'save') { const ok = await save(false, h); if (!ok) { S.held = h; renderCount(); } }
+}
+function setArea(a) {
+  S.area = String(a || '').trim().slice(0, 40); LS.set('area', S.area);
+  if (S.area) { S.areas = [S.area, ...S.areas.filter(x => x !== S.area)].slice(0, 12); LS.set('areas', S.areas); }
+}
+
+/* ---------- photos ---------- */
+let photoKind = 'label';
+function takePhoto(kind) { photoKind = kind || 'label'; const inp = $('#cam'); inp.value = ''; inp.click(); }
+async function shrink(file, max, q) {
+  let src;
+  try { src = await createImageBitmap(file, {imageOrientation: 'from-image'}); }
+  catch (e) { src = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); }); }
+  const w = src.width, h = src.height, k = Math.min(1, max / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+  return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('toBlob')), 'image/jpeg', q));
+}
+$('#cam').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) { focusScan(); return; }
+  const cur = ensureCur();
+  let blob; try { blob = await shrink(f, 1600, 0.78); } catch (err) { blob = f; }
+  const key = 'p-' + newId();
+  await Store.put('photos', blob, key);
+  cur.photos.push({key, kind: photoKind, url: URL.createObjectURL(blob)}); cur.err = '';
+  if (photoKind === 'label' && issues(cur).some(i => i.k === 'other_product')) cur.ackMismatch = true;
+  persistCur(); renderCount(); focusScan();
+});
+
+/* ---------- saving ---------- */
+async function askPersist() {
+  try { if (navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) S.persisted = await navigator.storage.persist(); else if (navigator.storage && navigator.storage.persisted) S.persisted = await navigator.storage.persisted(); } catch (e) { /* ignore */ }
+}
+async function save(force, held) {
+  const cur = S.cur;
+  const block = saveBlock(cur, force);
+  if (block) {
+    if (cur) cur.err = block === 'PHOTO' ? 'PHOTO' : block; else toast(block, true);
+    beep('warn'); renderCount(); return false;
+  }
+  if (!S.setup.team || !S.setup.store) { openWho(); return false; }
+  const code = cur.product || (cur.line ? (lineByLid(cur.line) || [])[1] : '') || '';
+  const p = prodInfo(code);
+  const L = cur.line ? lineByLid(cur.line) : null;
+  const t = nowIso();
+  const rec = {
+    v: 2, id: cur.id, count: S.countId, at: t, changedAt: t, sentAt: '',
+    team: S.setup.team, store: S.setup.store, area: S.area || '', device: S.setup.device,
+    code, desc: p ? p[0] : '', group: code ? grpOf(code) : '',
+    batch: cur.batch || '', scanned: {product: cur.productRaw || '', batch: cur.batchRaw || ''}, scans: cur.scans || [],
+    match: cur.batch ? (cur.line ? (cur.match || 'exact') : 'none') : (cur.line ? 'product' : 'no_label'),
+    line: cur.line || '', k8batch: L ? L[2] : '',
+    qty: Math.round(Number(cur.qty) * 100) / 100, unit: p ? p[1] : 'MT',
+    photos: cur.photos.map(ph => ({key: ph.key, kind: ph.kind, sent: false})),
+    flags: flagsFor(cur, force), note: cur.note || '', void: false, edits: [],
+  };
+  S.recs.set(rec.id, rec);
+  await Store.put('recs', rec);
+  toast(`Saved ${rec.batch || rec.code || 'count'} · ${fmtQty(rec.qty)} ${UNIT[rec.unit] || ''}`);
+  beep('ok'); buzz(40);
+  S.cur = null; persistCur();
+  if (S.persisted === null) askPersist();
+  if (held) onScan(held.raw, held.src); else renderAll();
+  focusScan();
+  return true;
+}
+function clearCur() {
+  if (S.cur) for (const ph of S.cur.photos) { Store.del('photos', ph.key); try { URL.revokeObjectURL(ph.url); } catch (e) { /* ignore */ } }
+  S.cur = null; S.held = null; persistCur(); renderCount(); focusScan();
+}
+async function patchRec(id, patch) {
+  const rec = S.recs.get(id); if (!rec) return;
+  Object.assign(rec, patch, {changedAt: nowIso()});
+  await Store.put('recs', rec); renderAll();
+}
+
+/* ---------- sending ---------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function makeZip(entries) {
+  const enc = new TextEncoder(); const parts = [], central = []; let offset = 0;
+  const d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const e of entries) {
+    const data = new Uint8Array(await e.blob.arrayBuffer()); const name = enc.encode(e.name); const crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+    parts.push(lh, name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
+    central.push(ch, name);
+    offset += 30 + name.length + data.length;
+  }
+  const cd = central.reduce((a, p) => a + p.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true);
+  end.setUint32(12, cd, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end], {type: 'application/zip'});
+}
+const photoName = (r, j, ph) => `${r.id}-${j + 1}-${ph.kind}.jpg`;
+function csvFor(rs) {
+  const head = ['Time', 'Team', 'Store', 'Area', 'Device', 'Product code', 'Description', 'Grouping', 'Batch', 'Batch as scanned', 'Product as scanned', 'Match',
+    'K8 page', 'K8 line', 'Quantity', 'Unit', 'Flags', 'Note', 'Photos', 'Removed', 'Changed', 'Edits', 'Id', 'Count'];
+  const cell = v => { const s = String(v ?? ''); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = rs.map(r => {
+    const p = String(r.line || '').split('-');
+    return [r.at, r.team, r.store, r.area, r.device, r.code, r.desc, gname(r.group), r.batch, r.scanned && r.scanned.batch, r.scanned && r.scanned.product, r.match,
+      p.length === 3 ? +p[1] : '', p.length === 3 ? +p[2] : '', r.qty, r.unit, (r.flags || []).join(' '), r.note,
+      (r.photos || []).map((ph, j) => photoName(r, j, ph)).join(' '), r.void ? 'yes' : '', r.changedAt,
+      (r.edits || []).map(e => `${e.from}>${e.to} ${e.by} ${e.at}`).join('; '), r.id, r.count];
+  });
+  return '﻿' + [head, ...rows].map(a => a.map(cell).join(',')).join('\r\n');
+}
+const baseName = () => `Kamarossi count - ${S.list.count.name} - ${S.setup.device} - ${stamp(new Date())}`;
+async function prepareSend() {
+  const rs = recs().sort((a, b) => (a.at < b.at ? -1 : 1));
+  const photos = [];
+  for (const r of rs) for (const [j, ph] of (r.photos || []).entries()) {
+    if (!S.sendAll && ph.sent) continue;
+    const b = await Store.get('photos', ph.key);
+    if (b) photos.push({r, ph, file: new File([b], photoName(r, j, ph), {type: 'image/jpeg'})});
+  }
+  const base = baseName();
+  const csv = new File([csvFor(rs)], base + '.csv', {type: 'text/csv'});
+  const per = 25, parts = [];
+  for (let i = 0; i === 0 || i < photos.length; i += per) {
+    const ph = photos.slice(i, i + per);
+    parts.push({files: (i === 0 ? [csv] : []).concat(ph.map(x => x.file)), photos: ph, withCsv: i === 0, done: false});
+  }
+  S.sendParts = parts;
+  return {rs, photos};
+}
+async function sharePart(n) {
+  const part = S.sendParts && S.sendParts[n]; if (!part) return;
+  const data = {files: part.files, title: 'Kamarossi count', text: `${S.list.count.name} · ${S.setup.team} · ${S.setup.device}${S.sendParts.length > 1 ? ` · part ${n + 1} of ${S.sendParts.length}` : ''}`};
+  if (!navigator.canShare || !navigator.canShare({files: part.files})) { toast("This phone can't share these files. Use Save to phone.", true); return; }
+  try {
+    await navigator.share(data);
+    const t = nowIso();
+    if (part.withCsv) for (const r of recs()) { r.sentAt = t; await Store.put('recs', r); }
+    for (const x of part.photos) { x.ph.sent = true; await Store.put('recs', x.r); }
+    part.done = true; toast(S.sendParts.length > 1 ? `Part ${n + 1} sent` : 'Sent'); renderAll(); drawSend();
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+    toast("Couldn't share. Try again, or use Save to phone.", true);
+  }
+}
+async function saveZip() {
+  const rs = recs().sort((a, b) => (a.at < b.at ? -1 : 1));
+  const entries = [];
+  const base = baseName();
+  entries.push({name: base + '.csv', blob: new Blob([csvFor(rs)], {type: 'text/csv'})});
+  entries.push({name: base + '.json', blob: new Blob([JSON.stringify({app: APPV, count: S.list.count, device: S.setup.device, saved: nowIso(), records: rs.map(r => Object.assign({}, r, {photos: (r.photos || []).map((ph, j) => ({file: photoName(r, j, ph), kind: ph.kind}))}))}, null, 1)], {type: 'application/json'})});
+  for (const r of rs) for (const [j, ph] of (r.photos || []).entries()) { const b = await Store.get('photos', ph.key); if (b) entries.push({name: 'photos/' + photoName(r, j, ph), blob: b}); }
+  const zip = await makeZip(entries);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = base + '.zip';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  toast('Saved to Downloads');
+}
+async function openSend() {
+  openSheet('<h3>Send counts</h3><div id="sendBox"><p class="note">Getting the counts ready…</p></div>');
+  await prepareSend(); drawSend();
+}
+function drawSend() {
+  const box = $('#sendBox'); if (!box || !S.sendParts) return;
+  const rs = recs(); const n = rs.filter(unsent).length;
+  const nph = S.sendParts.reduce((a, p) => a + p.photos.length, 0);
+  const canShare = !!(navigator.canShare && navigator.share);
+  box.innerHTML = `<p class="note">${rs.length} counts on this device for ${esc(S.list.count.name)} · ${n} new or changed since the last send · ${nph} photo${nph === 1 ? '' : 's'} ${S.sendAll ? 'in total' : 'not sent yet'}.</p>
+    <p class="note" style="margin-top:6px">The count file always has every count from this device. Send it to WhatsApp, Teams, Outlook or OneDrive, whichever the phone has.</p>
+    <div class="parts" style="margin-top:10px">${canShare ? S.sendParts.map((p, i) => `<button class="btn ${p.done ? '' : 'pri'}" data-act="share" data-n="${i}"><span>${S.sendParts.length > 1 ? `Part ${i + 1}: ` : ''}${p.withCsv ? 'count file' : ''}${p.withCsv && p.photos.length ? ' + ' : ''}${p.photos.length ? `${p.photos.length} photo${p.photos.length === 1 ? '' : 's'}` : ''}</span><span>${p.done ? 'Sent' : 'Send'}</span></button>`).join('') : '<p class="err">This browser cannot share files. Use Save to phone.</p>'}</div>
+    <div class="filters" style="margin-top:10px"><button class="chipbtn" data-act="sendall" aria-pressed="${S.sendAll}">Include photos sent before</button></div>
+    <div class="sec" style="margin-top:6px"><b>Backup</b><p class="note">Saves one ZIP file with every count and photo to the phone's Downloads folder.</p><div><button class="btn" data-act="zip">Save to phone</button></div></div>`;
+}
+
+/* ---------- feedback ---------- */
+let ac = null, wl = null;
+function beep(kind) {
+  if (!ac) return;
+  try {
+    const seq = kind === 'ok' ? [[1175, .07]] : kind === 'warn' ? [[587, .09], [587, .09]] : [[220, .32], [196, .32]];
+    let t = ac.currentTime + .01;
+    for (const [f, d] of seq) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'square'; o.frequency.value = f; g.gain.value = .05;
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d); t += d + .05;
+    }
+  } catch (e) { /* no sound */ }
+}
+function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* ignore */ } }
+async function wake() {
+  try { if (!wl && 'wakeLock' in navigator && document.visibilityState === 'visible') { wl = await navigator.wakeLock.request('screen'); wl.addEventListener('release', () => { wl = null; }); } } catch (e) { /* ignore */ }
+}
+document.addEventListener('pointerdown', () => {
+  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
+  if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
+  wake();
+}, {passive: true});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
+let toastT = null;
+function toast(msg, bad) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+/* ---------- scanner input ---------- */
+const scan = $('#scan');
+let idleT = null;
+scan.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === 'Tab' || e.keyCode === 13) {
+    e.preventDefault(); clearTimeout(idleT);
+    const v = scan.value; scan.value = '';
+    if (v.trim()) onScan(v, S.typing ? 'typed' : 'scan');
+    if (S.typing) stopTyping();
+  }
+});
+scan.addEventListener('input', () => {
+  if (S.typing) return;
+  clearTimeout(idleT);
+  idleT = setTimeout(() => { const v = scan.value; if (v.trim().length >= 2) { scan.value = ''; onScan(v, 'scan'); } }, 220);
+});
+function startTyping() {
+  S.typing = true; scan.inputMode = 'text'; scan.placeholder = 'Type the batch or product code, then Go';
+  $('#typeBtn').textContent = 'Go'; $('#scanrow').classList.add('typing');
+  scan.blur(); scan.focus();
+}
+function stopTyping() {
+  S.typing = false; scan.inputMode = 'none';
+  $('#typeBtn').textContent = 'Type'; $('#scanrow').classList.remove('typing');
+  scan.blur(); setTimeout(focusScan, 30);
+}
+const sheetOpen = () => !$('#sheet').hidden;
+function focusScan() {
+  if (S.tab !== 'count' || sheetOpen() || !S.list) { updDot(); return; }
+  try { scan.focus({preventScroll: true}); } catch (e) { /* ignore */ }
+  updDot();
+}
+function updDot() {
+  const ready = document.hasFocus() && document.activeElement === scan && !S.typing;
+  $('#scanrow').classList.toggle('ready', ready);
+  if (!S.typing) scan.placeholder = ready ? 'Ready: scan a label' : 'Tap here, then scan';
+}
+scan.addEventListener('focus', updDot);
+scan.addEventListener('blur', () => setTimeout(() => {
+  const a = document.activeElement;
+  if (S.tab === 'count' && !sheetOpen() && !S.typing && a !== scan && !(a && /^(INPUT|TEXTAREA)$/.test(a.tagName))) focusScan(); else updDot();
+}, 150));
+window.addEventListener('focus', () => setTimeout(focusScan, 50));
+window.addEventListener('blur', updDot);
+$('#v-count').addEventListener('pointerdown', e => { if (e.target.closest('button') && !S.typing) e.preventDefault(); });
+$('#v-count').addEventListener('mousedown', e => { if (e.target.closest('button') && !S.typing) e.preventDefault(); });
+
+/* ---------- keypad ---------- */
+function key(k) {
+  const cur = ensureCur(); let q = cur.qty || '';
+  if (k === 'bk') q = q.slice(0, -1);
+  else if (k === 'clr') q = '';
+  else if (k === '.') { if (!q.includes('.')) q = (q || '0') + '.'; }
+  else {
+    if (q === '0') q = '';
+    if (q.includes('.') && q.split('.')[1].length >= 2) return;
+    if (q.replace('.', '').length >= 7) return;
+    q += k;
+  }
+  cur.qty = q; if (cur.err && cur.err !== 'PHOTO') cur.err = '';
+  if (!q && !hasData(cur) && !cur.product) S.cur = null;
+  persistCur(); renderQty(); renderCard();
+}
+
+/* ---------- rendering ---------- */
+function renderAll() {
+  renderHead(); renderTabs();
+  if (!S.list) return;
+  if (S.tab === 'count') renderCount(); if (S.tab === 'list') renderList(); if (S.tab === 'find') renderFind(); if (S.tab === 'setup') renderSetup();
+}
+function renderHead() {
+  const chip = $('#sendChip');
+  if (!S.list) { chip.hidden = true; return; }
+  chip.hidden = false;
+  const rs = recs(); const n = rs.filter(unsent).length;
+  const nph = rs.reduce((a, r) => a + (r.photos || []).filter(p => !p.sent).length, 0);
+  chip.className = 'sync ' + (n || nph ? 'warn' : rs.length ? 'ok' : '');
+  chip.querySelector('span').textContent = n ? `${n} to send` : nph ? `${nph} photos to send` : rs.length ? 'All sent' : 'Nothing to send';
+}
+function renderTabs() {
+  $('#tabs').hidden = !S.list; $('#top').querySelector('.areabtn').hidden = !S.list;
+  document.querySelectorAll('.tabs button').forEach(b => { if (b.dataset.tab === S.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+  if (!S.list) return;
+  $('#nList').textContent = String(live().length);
+  const f = findStats(); $('#nFind').textContent = String(f.total - f.found);
+}
+function renderCount() { renderArea(); renderCard(); renderQty(); }
+function renderArea() {
+  const v = $('#areaVal');
+  v.textContent = S.area ? [S.setup.store, S.area].filter(Boolean).join(' · ') : (S.setup.store ? `${S.setup.store} · set the area` : 'Set the area');
+  v.classList.toggle('unset', !S.area);
+}
+function renderQty() {
+  const cur = S.cur; const u = cur ? unitOf(cur) : 'MT';
+  $('#qtyLbl').textContent = UNITW[u] || 'Quantity';
+  $('#qtyVal').innerHTML = `${esc(cur && cur.qty ? cur.qty : '0')}<small>${esc(UNIT[u] || '')}</small>`;
+}
+function tagFor(cur) {
+  const ks = issues(cur).map(x => x.k);
+  if (cur.line) {
+    if (ks.includes('other_product')) return '<span class="tag bad">K8: other product</span>';
+    if (cur.batchSrc === 'typed') return '<span class="tag info">Typed · on K8 list</span>';
+    return `<span class="tag ok">On K8 list${cur.match && !['exact', 'product'].includes(cur.match) ? ' *' : ''}</span>`;
+  }
+  if (cur.batch) return '<span class="tag warn">Not on K8 list</span>';
+  return '';
+}
+function decision(cur) {
+  if (S.held) return 'held';
+  if (!cur) return '';
+  if (cur.err === 'PHOTO') return 'photo';
+  const ks = issues(cur).map(x => x.k);
+  if (ks.includes('dup')) return 'dup';
+  if (ks.includes('cands')) return 'cands';
+  if (ks.includes('unknown')) return 'unknown';
+  if (ks.includes('other_product') && !cur.ackMismatch) return 'other_product';
+  return '';
+}
+const where = r => [r.store, r.area].filter(Boolean).join(' · ');
+function decisionHtml(d, cur) {
+  const L = cur && cur.line ? lineByLid(cur.line) : null;
+  switch (d) {
+    case 'held': return `<div class="ban info"><b>Save this drum first?</b> You scanned the next label: <span class="mono">${esc(S.held.raw)}</span>
+      <div class="row"><button class="btn pri" data-act="held-save">Save it</button><button class="btn" data-act="held-discard">Discard it</button><button class="btn" data-act="held-cancel">Go back</button></div></div>`;
+    case 'photo': return `<div class="ban warn"><b>Take a photo of the label.</b> Drums that don't match K8 need a photo so they can be checked.
+      <div class="row"><button class="btn pri" data-act="photo" data-kind="label">Photo of label</button><button class="btn" data-act="save-nophoto">Save without a photo</button></div></div>`;
+    case 'dup': {
+      const rs = countedFor(cur); const r = rs[0];
+      return `<div class="ban bad"><b>Counted already</b> on this device by ${esc(r.team)} at ${esc(where(r) || 'an unknown area')}, ${esc(hhmm(r.at))}: ${esc(fmtQty(r.qty))} ${esc(UNIT[r.unit] || '')}${rs.length > 1 ? ` (and ${rs.length - 1} more)` : ''}.
+        <div class="row"><button class="btn" data-act="dup-same">Same drum: don't count</button><button class="btn" data-act="dup-piece">Another piece: count it</button></div></div>`;
+    }
+    case 'cands': {
+      const ps = [...new Set(cur.cands.map(j => line(j)[1]))];
+      return `<div class="ban warn"><b>Pick the product.</b> K8 has this batch under ${ps.length} products:<div class="row">${ps.map(c => `<button class="btn small" data-act="cand" data-i="${cur.cands.find(j => line(j)[1] === c)}"><span class="mono">${esc(c)}</span></button>`).join('')}</div></div>`;
+    }
+    case 'unknown': return `<div class="ban warn"><b>Not recognised:</b> <span class="mono">${esc(cur.unknown)}</span>
+      <div class="row"><button class="btn" data-act="unk-batch">It's the batch number</button><button class="btn" data-act="unk-ignore">Ignore it</button></div></div>`;
+    case 'other_product': return `<div class="ban bad"><b>Label and K8 don't match.</b> K8 has <span class="mono">${esc(cur.batch)}</span> under <span class="mono">${esc(L[1])}</span> (${esc(gname(grpOf(L[1])))}). The label says <span class="mono">${esc(cur.product)}</span> (${esc(gname(grpOf(cur.product)))}).
+      <div class="row"><button class="btn pri" data-act="photo" data-kind="label">Photo of label</button><button class="btn" data-act="ack-mismatch">Count it anyway</button></div></div>`;
+  }
+  return '';
+}
+function infoLines(cur) {
+  const L = cur.line ? lineByLid(cur.line) : null;
+  const out = [];
+  for (const i of issues(cur)) {
+    if (i.k === 'other_product' && cur.ackMismatch) out.push(`<div class="cl bad">Label ≠ K8: K8 has this batch under <span class="mono">${esc(L[1])}</span> (${esc(gname(grpOf(L[1])))}).</div>`);
+    if (i.k === 'not_in_k8') out.push('<div class="cl warn">Not on the K8 list. Take a photo of the label, then count it.</div>');
+    if (i.k === 'need_batch') out.push('<div class="cl info">Now scan the batch barcode, or tap Type and key in the batch from the label.</div>');
+    if (i.k === 'no_label') out.push(`<div class="cl warn">No batch yet. Pick the product if you know it, then enter the ${unitOf(cur) === 'MT' ? 'metres' : 'quantity'}.</div>`);
+    if (i.k === 'other_group') out.push(`<div class="cl info">${esc(gname(grpOf(L[1])))} stock. Count it here anyway.</div>`);
+  }
+  if (cur.dupOk) out.push('<div class="cl info">Another piece of a batch that was counted already.</div>');
+  if (cur.note) out.push(`<div class="cl">Note: ${esc(cur.note)}</div>`);
+  if (cur.err && cur.err !== 'PHOTO') out.push(`<div class="err">${esc(cur.err)}</div>`);
+  return out.join('');
+}
+function applyDecide(d) { const hide = !!d; $('#qtybar').hidden = hide; $('#pad').hidden = hide; }
+function renderCard() {
+  const el = $('#card'); if (!S.list) return;
+  const cur = S.cur;
+  const d = decision(cur);
+  applyDecide(d);
+  if (d) { el.innerHTML = decisionHtml(d, cur) + (cur ? idHtml(cur) : ''); el.scrollTop = 0; return; }
+  if (!cur || !(cur.product || cur.batch || cur.photos.length || cur.unknown)) {
+    const f = findStats();
+    el.innerHTML = `<div class="empty">
+      ${!S.setup.team || !S.setup.store ? '<div class="ban info"><b>Who is counting?</b> Set the team and store once on this device.<div class="row"><button class="btn small pri" data-act="who">Set team and store</button></div></div>' : ''}
+      <p class="big">Scan the drum label</p>
+      <p>No barcode? Tap Type and key in the batch from the label, then take a photo with the camera button.</p>
+      <div class="row" style="margin-top:2px"><button class="btn small" data-act="pick">Pick product</button></div>
+      <p class="k8sum">${esc(selGroups().map(gname).join(', '))}: ${f.found} of ${f.total} K8 lines found on this device</p>
+      ${cur && cur.err ? `<div class="err">${esc(cur.err)}</div>` : ''}</div>`;
+    return;
+  }
+  el.innerHTML = idHtml(cur) + infoLines(cur);
+}
+function idHtml(cur) {
+  const L = cur.line ? lineByLid(cur.line) : null;
+  const code = cur.product || (L ? L[1] : '');
+  const p = prodInfo(code);
+  let h = `<div class="idrow"><b>${esc(code ? gname(grpOf(code)) : 'Product not known')}</b><span class="code">${esc(code)}</span>
+    <button class="morebtn" data-act="more" aria-label="More for this drum"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button></div>`;
+  if (code) h += `<div class="desc">${esc(p ? p[0] : 'Not in the product list')}</div>`;
+  if (cur.batch) {
+    const bits = [];
+    if (L) bits.push('K8 ' + pageLine(L[0]));
+    if (cur.batchRaw && norm(cur.batchRaw) !== norm(cur.batch)) bits.push('label: ' + cur.batchRaw);
+    if (cur.multi) bits.push('batch on several K8 lines');
+    h += `<div class="batch"><span class="mono">${esc(cur.batch)}</span>${tagFor(cur)}${bits.length ? `<span class="k8">${esc(bits.join(' · '))}</span>` : ''}</div>`;
+  } else if (L) h += `<div class="k8">K8 ${esc(pageLine(L[0]))} · no batch</div>`;
+  if (cur.photos.length) h += `<div class="photos">${cur.photos.map((x, j) => `<button class="thumb" data-act="viewph" data-j="${j}"><img src="${esc(x.url)}" alt=""><span>${x.kind === 'card' ? 'Card' : 'Label'}</span></button>`).join('')}</div>`;
+  return h;
+}
+function openMore() {
+  const cur = S.cur;
+  openSheet(`<h3>This drum</h3><div class="res">
+    <button data-act="photo" data-kind="label"><b>Photo of the label</b></button>
+    <button data-act="photo" data-kind="card"><b>Photo of the drum card</b><span class="desc">The cut card on the flange</span></button>
+    <button data-act="pick"><b>${cur && (cur.product || cur.line) ? 'Change the product' : 'Pick the product'}</b></button>
+    <button data-act="note"><b>Add a note</b><span class="desc">Customer name on the drum, damaged label, estimated metres</span></button>
+    <button data-act="clear-yes"><b>Clear this drum</b><span class="desc">Start again without saving it</span></button></div>`);
+}
+function findStats() {
+  if (!S.list) return {total: 0, found: 0, extra: 0};
+  const g = new Set(selGroups());
+  const lids = S.list.lines.filter(L => g.has(grpOf(L[1])));
+  const lv = live();
+  const counted = new Set(lv.map(r => r.line).filter(Boolean));
+  const codes = new Set(lv.map(r => r.code));
+  let found = 0;
+  for (const L of lids) if (counted.has(L[0]) || (!norm(L[2]) && codes.has(L[1]))) found++;
+  const extra = lv.filter(r => !r.line && (!r.group || g.has(r.group))).length;
+  return {total: lids.length, found, extra};
+}
+function renderFind() {
+  const el = $('#v-find');
+  const g = new Set(selGroups());
+  const lv = live();
+  const counted = new Set(lv.map(r => r.line).filter(Boolean));
+  const codes = new Set(lv.map(r => r.code));
+  const q = norm(S.findQ);
+  const f = findStats();
+  const pct = f.total ? Math.round(100 * f.found / f.total) : 0;
+  let rows = S.list.lines.filter(L => g.has(grpOf(L[1]))).map(L => ({L, done: counted.has(L[0]) || (!norm(L[2]) && codes.has(L[1]))}));
+  if (!S.findAll) rows = rows.filter(x => !x.done);
+  if (q) rows = rows.filter(x => norm(x.L[2]).includes(q) || norm(x.L[1]).includes(q));
+  let h = `<h2>Still to find</h2><p class="sub">${esc(selGroups().map(gname).join(', '))} on the K8 list, against the counts on this device. Other devices' counts come together when they are sent.</p>
+    <div class="stat"><div><b>${f.found}</b><span>found of ${f.total}</span></div><div><b>${f.total - f.found}</b><span>still to find</span></div><div><b>${f.extra}</b><span>not on K8 list</span></div></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <input class="search" id="findQ" type="search" placeholder="Search batch or product code" value="${esc(S.findQ)}" autocomplete="off">
+    <div class="filters"><button class="chipbtn" data-act="findall" aria-pressed="${S.findAll}">Show found ones too</button></div>`;
+  let last = '';
+  const max = 400;
+  rows.slice(0, max).forEach(({L, done}) => {
+    const pg = L[0].split('-').slice(0, 2).join('-');
+    if (pg !== last) { last = pg; h += `<div class="pagehd">${esc(gname(L[0].split('-')[0]))} · K8 page ${+L[0].split('-')[1]}</div>`; }
+    h += `<div class="findrow${done ? ' done' : ''}"><span class="ln">${+L[0].split('-')[2]}</span><div><div class="mono">${esc(L[2] || '(no batch)')}</div><div class="pc">${esc(L[1])} · ${esc((prodInfo(L[1]) || [''])[0])}</div></div></div>`;
+  });
+  if (!rows.length) h += `<p class="note">${q ? 'Nothing matches that search.' : 'Every K8 line in these groupings has been found on this device.'}</p>`;
+  if (rows.length > max) h += `<p class="note">Showing ${max} of ${rows.length}. Search to narrow it down.</p>`;
+  el.innerHTML = h;
+}
+function recFlags(r) {
+  const t = []; const F = r.flags || [];
+  if (r.void) t.push('<span class="tag">Removed</span>');
+  if (unsent(r)) t.push('<span class="tag warn">Not sent yet</span>');
+  if (F.includes('other_product')) t.push('<span class="tag bad">Label ≠ K8</span>');
+  if (F.includes('not_in_k8')) t.push('<span class="tag warn">Not on K8 list</span>');
+  if (F.includes('no_label')) t.push('<span class="tag warn">No label</span>');
+  if (F.includes('piece')) t.push('<span class="tag info">Another piece</span>');
+  if (F.includes('typed')) t.push('<span class="tag info">Typed</span>');
+  if (F.includes('other_group')) t.push(`<span class="tag info">${esc(gname(r.group))}</span>`);
+  if ((r.photos || []).length) t.push(`<span class="tag">${r.photos.length} photo${r.photos.length > 1 ? 's' : ''}</span>`);
+  return t.join('');
+}
+const problem = r => (r.flags || []).some(f => ['other_product', 'not_in_k8', 'no_label', 'piece', 'typed', 'no_photo'].includes(f));
+function renderList() {
+  const el = $('#v-list');
+  let rs = recs().sort((a, b) => (a.at < b.at ? 1 : -1));
+  const all = rs.length;
+  if (S.listFilter === 'check') rs = rs.filter(r => !r.void && problem(r));
+  else if (S.listFilter === 'unsent') rs = rs.filter(unsent);
+  else if (S.listFilter === 'removed') rs = rs.filter(r => r.void);
+  else rs = rs.filter(r => !r.void);
+  const q = norm(S.listQ);
+  if (q) rs = rs.filter(r => norm(r.batch).includes(q) || norm(r.code).includes(q) || norm(r.area).includes(q) || norm(r.team).includes(q));
+  const lv = live(); const tot = lv.reduce((a, r) => a + (r.unit === 'MT' ? r.qty : 0), 0);
+  let h = `<h2>Counted on this device</h2><p class="sub">${lv.length} counts · ${fmtQty(tot)} m · ${recs().filter(unsent).length} not sent yet</p>
+    <div class="row" style="margin:0 0 10px"><button class="btn pri" data-act="send">Send counts</button></div>
+    <input class="search" id="listQ" type="search" placeholder="Search batch, product, area or team" value="${esc(S.listQ)}" autocomplete="off">
+    <div class="filters">${[['all', 'All'], ['check', 'Needs checking'], ['unsent', 'Not sent'], ['removed', 'Removed']].map(([k, t]) => `<button class="chipbtn" data-act="lf" data-f="${k}" aria-pressed="${S.listFilter === k}">${t}</button>`).join('')}</div><div class="items">`;
+  rs.slice(0, S.listN).forEach(r => {
+    h += `<button class="item${r.void ? ' void' : ''}" data-act="open" data-id="${esc(r.id)}">
+      <div class="r1"><span class="mono">${esc(r.batch || '(no batch)')}</span><span class="q">${esc(fmtQty(r.qty))} ${esc(UNIT[r.unit] || '')}</span></div>
+      <div class="r2">${esc(r.code || 'Product not known')} · ${esc(where(r))}</div>
+      <div class="r3">${esc(r.team)} · ${esc(hhmm(r.at))} ${recFlags(r)}</div></button>`;
+  });
+  h += '</div>';
+  if (!rs.length) h += `<p class="note">${all ? 'Nothing here for this filter.' : 'No drums counted on this device yet. Scan a label on the Count tab to start.'}</p>`;
+  if (rs.length > S.listN) h += `<button class="btn" style="margin-top:10px" data-act="listmore">Show more (${rs.length - S.listN})</button>`;
+  el.innerHTML = h;
+}
+async function renderSetup() {
+  const el = $('#v-setup');
+  const g = new Set(selGroups());
+  const per = {}; for (const L of S.list.lines) per[grpOf(L[1])] = (per[grpOf(L[1])] || 0) + 1;
+  const sc = S.lastScan;
+  el.innerHTML = `<div class="sec"><h3>Who's counting</h3>
+      <div class="field"><label for="sTeam">Team (names)</label><input id="sTeam" value="${esc(S.setup.team)}" placeholder="e.g. Team A: Sipho and Johan" autocomplete="off"></div>
+      <div class="field"><label for="sStore">Store</label><input id="sStore" value="${esc(S.setup.store)}" placeholder="e.g. Main store" autocomplete="off"></div>
+      <div class="field"><label for="sDev">Device name</label><input id="sDev" value="${esc(S.setup.device)}" autocomplete="off"></div></div>
+    <div class="sec"><h3>The count</h3>
+      <dl class="kv"><dt>Count</dt><dd>${esc(S.list.count.name)}</dd><dt>K8 list</dt><dd>${esc(S.list.count.list || '')}</dd><dt>Lines</dt><dd>${S.list.lines.length}</dd></dl>
+      <div class="checks">${S.list.groups.map(([c, n]) => `<label><input type="checkbox" data-g="${c}" ${g.has(c) ? 'checked' : ''}> <span>${esc(n)} <small>${per[c] || 0}</small></span></label>`).join('')}</div>
+      <p class="note">Ticked groupings set the To find list. Drums from other groupings are still saved.</p>
+      <div><button class="btn" data-act="change-count">Open another count</button></div></div>
+    <div class="sec"><h3>Sending</h3>
+      <dl class="kv"><dt>On this device</dt><dd>${recs().length} counts · ${recs().filter(unsent).length} not sent yet</dd>
+      <dt>Kept safe</dt><dd id="persistTxt">${Store.durable() ? 'Saved on the device' : 'Only while the app stays open'}</dd></dl>
+      <div class="row"><button class="btn pri" data-act="send">Send counts</button><button class="btn" data-act="zip">Save to phone</button></div></div>
+    <div class="sec"><h3>Scanner</h3>
+      <p class="note">${sc ? `Last scan: <span class="mono">${esc(sc.raw)}</span> (${sc.len} characters, ${esc(sc.src)})` : 'No scan yet. Go to Count, tap the scan field and scan any label.'}</p>
+      <ol class="steps"><li>Settings › Honeywell Settings › Scanning › Internal Scanner › Default profile › Data Processing Settings.</li><li>Wedge on, Wedge Method: Keyboard, Suffix: \\n (Enter).</li><li>The app also works without the Enter suffix.</li></ol></div>
+    <p class="note">App ${APPV} · device ${esc(S.setup.device)}</p>`;
+  try {
+    if (navigator.storage && navigator.storage.persisted) {
+      const p = await navigator.storage.persisted(); const est = navigator.storage.estimate ? await navigator.storage.estimate() : null;
+      const t = $('#persistTxt'); if (t) t.textContent = `${p ? 'Protected from clean-up' : 'Saved on the device'}${est ? ` · ${(est.usage / 1048576).toFixed(1)} MB used` : ''}`;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/* ---------- opening a count ---------- */
+async function renderLoad() {
+  $('#loadCancel').hidden = !S.list;
+  const box = $('#loadList');
+  try {
+    const r = await fetch('lists/index.json', {cache: 'no-cache'});
+    const j = await r.json(); S.counts = j.counts || [];
+  } catch (e) { S.counts = S.counts || []; }
+  if (!S.counts.length) { box.innerHTML = '<p class="note">No counts found. Connect to Wi-Fi or mobile data and open the app again.</p>'; return; }
+  if (!S.pickCount) S.pickCount = S.counts[0].id;
+  box.innerHTML = S.counts.map(c => `<button class="item" data-act="pickcount" data-id="${esc(c.id)}" aria-pressed="${S.pickCount === c.id}"><div class="r1"><b>${esc(c.name)}</b></div><div class="r2">Added ${esc(c.added || '')}</div></button>`).join('');
+}
+const normCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function decryptList(env, code) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(normCode(code)), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: b64(env.salt), iterations: env.iter, hash: 'SHA-256'}, base, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  let plain = await crypto.subtle.decrypt({name: 'AES-GCM', iv: b64(env.iv)}, key, b64(env.data));
+  if (env.gz) plain = await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+async function unlock() {
+  const msg = $('#loadMsg'); const entry = S.counts.find(c => c.id === S.pickCount); const code = $('#code').value;
+  if (!entry) { msg.textContent = 'Pick a count first.'; return; }
+  if (normCode(code).length < 6) { msg.textContent = 'Type the count code.'; return; }
+  $('#unlockBtn').disabled = true; msg.textContent = 'Opening…';
+  let list = null;
+  try {
+    const env = await (await fetch(entry.file, {cache: 'no-cache'})).json();
+    list = await decryptList(env, code);
+  } catch (e) {
+    $('#unlockBtn').disabled = false;
+    msg.textContent = e && e.name === 'OperationError' ? "That code doesn't open this count. Check it and try again." : "Couldn't open the count. Check the signal and try again.";
+    return;
+  }
+  $('#unlockBtn').disabled = false; $('#code').value = ''; msg.textContent = '';
+  await Store.put('meta', list, 'list:' + list.count.id);
+  await Store.put('meta', list.count.id, 'current');
+  await useList(list);
+  askPersist();
+  toast('Count opened: ' + list.count.name);
+}
+async function useList(list) {
+  S.list = list; S.idx = buildIndex(list); S.countId = list.count.id; S.gname = {};
+  for (const [c, n] of list.groups) S.gname[c] = n;
+  S.recs = new Map(); for (const r of await Store.all('recs')) if (r.count === S.countId) S.recs.set(r.id, r);
+  S.cur = null; await restoreCur(LS.get('cur', null));
+  setTab('count');
+}
+function showLoad() {
+  for (const v of ['count', 'list', 'find', 'setup']) $('#v-' + v).hidden = true;
+  $('#v-load').hidden = false; $('#tabs').hidden = true; $('#top').hidden = true;
+  renderLoad();
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html, after) {
+  $('#sheetIn').innerHTML = html; $('#sheet').hidden = false;
+  try { scan.blur(); } catch (e) { /* ignore */ }
+  if (after) after($('#sheetIn'));
+}
+function closeSheet() { $('#sheet').hidden = true; $('#sheetIn').innerHTML = ''; S.sendParts = null; focusScan(); }
+function openArea() {
+  openSheet(`<h3>Where are you counting?</h3>
+    <div class="field"><label for="aStore">Store</label><input id="aStore" value="${esc(S.setup.store)}" autocomplete="off"></div>
+    <div class="field" style="margin-top:8px"><label for="aArea">Area, row or bay</label><input id="aArea" value="${esc(S.area)}" placeholder="e.g. Row A, bay 3" autocomplete="off"></div>
+    ${S.areas.length ? `<div class="row">${S.areas.map(a => `<button class="chipbtn" data-act="area-pick" data-a="${esc(a)}">${esc(a)}</button>`).join('')}</div>` : ''}
+    <div class="row"><button class="btn pri" data-act="area-set">Set area</button></div>
+    <p class="note" style="margin-top:8px">Scanning a location label (LOC-…) sets the area too.</p>`, r => r.querySelector('#aArea').focus());
+}
+function openWho() {
+  openSheet(`<h3>Before you start</h3><p class="note">Every count is saved with your team and store.</p>
+    <div class="field" style="margin-top:8px"><label for="wTeam">Team (names)</label><input id="wTeam" value="${esc(S.setup.team)}" placeholder="e.g. Team A: Sipho and Johan" autocomplete="off"></div>
+    <div class="field" style="margin-top:8px"><label for="wStore">Store</label><input id="wStore" value="${esc(S.setup.store)}" placeholder="e.g. Main store" autocomplete="off"></div>
+    <div class="row"><button class="btn pri" data-act="who-set">Start counting</button></div>`, r => r.querySelector(S.setup.team ? '#wStore' : '#wTeam').focus());
+}
+function prodResults(q, all) {
+  const g = new Set(selGroups()); const words = norm(q).split(' ').filter(Boolean);
+  const out = [];
+  for (const [c, [d]] of Object.entries(S.list.products)) {
+    if (!all && !g.has(grpOf(c))) continue;
+    const hay = norm(c + ' ' + d).replace(/,/g, '.');
+    if (words.every(w => hay.includes(w.replace(/,/g, '.')))) out.push(c);
+    if (out.length >= 60) break;
+  }
+  return out;
+}
+function openPick() {
+  const draw = (r, all) => {
+    const res = prodResults(r.querySelector('#pQ').value, all);
+    r.querySelector('#pRes').innerHTML = res.map(c => `<button data-act="pick-set" data-c="${esc(c)}"><span class="code">${esc(c)}</span><span class="desc">${esc(S.list.products[c][0])}</span></button>`).join('') || '<p class="note">No product matches. Try fewer words, e.g. 2,5 4 LH.</p>';
+  };
+  openSheet(`<h3>Pick the product</h3>
+    <input class="search" id="pQ" type="search" placeholder="e.g. 2,5 x 4 LH or 02/254" autocomplete="off">
+    <div class="filters"><button class="chipbtn" id="pAll" aria-pressed="false">All groupings</button></div>
+    <div class="res" id="pRes"></div>`, r => {
+    let all = false;
+    r.querySelector('#pQ').addEventListener('input', () => draw(r, all));
+    r.querySelector('#pAll').addEventListener('click', e => { all = !all; e.currentTarget.setAttribute('aria-pressed', String(all)); draw(r, all); });
+    draw(r, all); r.querySelector('#pQ').focus();
+  });
+}
+function openNote() {
+  const cur = ensureCur();
+  const quick = ['Customer name on drum', 'Open drum, metres estimated', 'Damaged label', 'Damaged drum', 'Empty drum'];
+  openSheet(`<h3>Note for this drum</h3>
+    <div class="row" style="margin-top:0">${quick.map(q => `<button class="chipbtn" data-act="note-add" data-t="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+    <div class="field" style="margin-top:8px"><label for="nTxt">Note</label><textarea id="nTxt" rows="3">${esc(cur.note)}</textarea></div>
+    <div class="row"><button class="btn pri" data-act="note-set">Save note</button></div>`);
+}
+async function openRec(id) {
+  const r = S.recs.get(id); if (!r) return;
+  const urls = [];
+  for (const ph of (r.photos || [])) { const b = await Store.get('photos', ph.key); urls.push(b ? URL.createObjectURL(b) : ''); }
+  const L = r.line ? lineByLid(r.line) : null;
+  const rows = [
+    ['Product', `${r.code || 'Not known'}${r.desc ? ' · ' + r.desc : ''}`], ['Batch', r.batch || '(none)'],
+    ['As scanned', [r.scanned && r.scanned.batch, r.scanned && r.scanned.product].filter(Boolean).join(' · ') || '-'],
+    ['K8 line', L ? `${gname(grpOf(L[1]))} ${pageLine(L[0])}` : 'Not on K8 list'],
+    ['Counted', `${fmtQty(r.qty)} ${UNIT[r.unit] || ''}`], ['Where', where(r) || '-'],
+    ['Team', `${r.team} · ${r.device}`], ['Time', dmy(r.at)], ['Sent', r.sentAt ? dmy(r.sentAt) + (unsent(r) ? ' (changed since)' : '') : 'Not yet'],
+  ];
+  if (r.note) rows.push(['Note', r.note]);
+  if (r.void) rows.push(['Removed', `${r.voidBy || ''} ${r.voidAt ? dmy(r.voidAt) : ''}`]);
+  if (r.edits && r.edits.length) rows.push(['Changed', r.edits.map(e => `${e.from} → ${e.to} (${e.by}, ${hhmm(e.at)})`).join('; ')]);
+  openSheet(`<h3><span class="mono">${esc(r.batch || r.code || 'Count')}</span></h3>
+    <div class="r3" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">${recFlags(r)}</div>
+    ${urls.some(Boolean) ? `<div class="phgrid">${urls.map((u, j) => u ? `<button data-act="bigph" data-u="${esc(u)}"><img src="${esc(u)}" alt="Photo ${j + 1}"><span>${r.photos[j].kind === 'card' ? 'Card' : 'Label'}</span></button>` : '').join('')}</div>` : ''}
+    <dl class="kv" style="margin-top:10px">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    <div id="recEdit"></div>
+    <div class="row">${r.void ? `<button class="btn" data-act="rec-restore" data-id="${esc(r.id)}">Restore this count</button>`
+      : `<button class="btn" data-act="rec-qty" data-id="${esc(r.id)}">Change quantity</button><button class="btn" data-act="rec-del" data-id="${esc(r.id)}">Remove this count</button>`}</div>`);
+}
+function recQtyEditor(id) {
+  const r = S.recs.get(id); if (!r) return;
+  let q = '';
+  const box = $('#recEdit');
+  const draw = () => { box.querySelector('.qty').innerHTML = `${esc(q || '0')}<small>${esc(UNIT[r.unit] || '')}</small>`; };
+  box.innerHTML = `<div class="sec" style="margin-top:10px"><div class="lbl">New quantity (was ${esc(fmtQty(r.qty))})</div><div class="qty">0</div>
+    <div class="minipad">${['7', '8', '9', '4', '5', '6', '1', '2', '3', '.', '0', 'bk'].map(k => `<button data-mk="${k}">${k === 'bk' ? '⌫' : k}</button>`).join('')}</div>
+    <div class="row"><button class="btn pri" data-act="rec-qty-save" data-id="${esc(id)}">Save new quantity</button></div></div>`;
+  box.querySelectorAll('[data-mk]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.mk;
+    if (k === 'bk') q = q.slice(0, -1); else if (k === '.') { if (!q.includes('.')) q = (q || '0') + '.'; }
+    else if (!(q.includes('.') && q.split('.')[1].length >= 2) && q.replace('.', '').length < 7) q = (q === '0' ? '' : q) + k;
+    box.dataset.q = q; draw();
+  }));
+  draw();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-act],[data-k],[data-tab]'); if (!t) return;
+  if (t.dataset.k) { key(t.dataset.k); return; }
+  if (t.dataset.tab) { setTab(t.dataset.tab); return; }
+  const a = t.dataset.act, cur = S.cur;
+  switch (a) {
+    case 'save': await save(false); break;
+    case 'save-nophoto': await save(true); break;
+    case 'photo': if (sheetOpen()) closeSheet(); takePhoto(t.dataset.kind); break;
+    case 'more': openMore(); break;
+    case 'ack-mismatch': if (cur) { cur.ackMismatch = true; persistCur(); renderCount(); } break;
+    case 'type': if (S.typing) { const v = scan.value; scan.value = ''; if (v.trim()) onScan(v, 'typed'); stopTyping(); } else startTyping(); break;
+    case 'area': openArea(); break;
+    case 'who': openWho(); break;
+    case 'area-pick': $('#aArea').value = t.dataset.a; break;
+    case 'area-set': { const st = $('#aStore').value.trim(); if (st) { S.setup.store = st; LS.set('setup', S.setup); } setArea($('#aArea').value); closeSheet(); renderAll(); break; }
+    case 'who-set': {
+      const tm = $('#wTeam').value.trim(), st = $('#wStore').value.trim();
+      if (!tm || !st) { toast('Fill in the team and the store', true); break; }
+      S.setup.team = tm; S.setup.store = st; LS.set('setup', S.setup); closeSheet(); renderAll(); break;
+    }
+    case 'pick': openPick(); break;
+    case 'pick-set': {
+      const c = ensureCur(); c.product = t.dataset.c; c.productSrc = 'pick'; c.err = ''; c.ackMismatch = false;
+      if (c.cands) { const f = c.cands.filter(i => line(i)[1] === c.product); if (f.length) pickCand(f[0]); }
+      if (!c.batch && !hasBatchLines(c.product)) { const ls = S.idx.byCode.get(c.product) || []; if (ls.length) c.line = line(ls[0])[0]; }
+      closeSheet(); afterChange(false); break;
+    }
+    case 'note': openNote(); break;
+    case 'note-add': { const n = $('#nTxt'); n.value = (n.value ? n.value.trim() + '; ' : '') + t.dataset.t; break; }
+    case 'note-set': { const c = ensureCur(); c.note = $('#nTxt').value.trim().slice(0, 300); closeSheet(); persistCur(); renderCount(); break; }
+    case 'clear-yes': if (sheetOpen()) closeSheet(); clearCur(); break;
+    case 'dup-same': clearCur(); toast('Not counted again'); break;
+    case 'dup-piece': if (cur) { cur.dupOk = true; afterChange(false); } break;
+    case 'cand': pickCand(+t.dataset.i); afterChange(true); break;
+    case 'unk-batch': if (cur) { const raw = cur.unknown; cur.unknown = ''; setBatch({kind: 'none', lines: []}, raw, 'scan'); afterChange(false); } break;
+    case 'unk-ignore': if (cur) { cur.unknown = ''; if (!hasData(cur) && !cur.product) S.cur = null; persistCur(); renderCount(); } break;
+    case 'held-save': resolveHeld('save'); break;
+    case 'held-discard': resolveHeld('discard'); break;
+    case 'held-cancel': resolveHeld('cancel'); break;
+    case 'viewph': if (cur) { const p = cur.photos[+t.dataset.j]; openSheet(`<h3>${p.kind === 'card' ? 'Drum card' : 'Label'} photo</h3><img class="bigph" src="${esc(p.url)}" alt=""><div class="row"><button class="btn" data-act="delph" data-j="${t.dataset.j}">Remove this photo</button></div>`); } break;
+    case 'delph': if (cur) { const p = cur.photos.splice(+t.dataset.j, 1)[0]; if (p) Store.del('photos', p.key); closeSheet(); persistCur(); renderCount(); } break;
+    case 'bigph': openSheet(`<img class="bigph" src="${esc(t.dataset.u)}" alt="">`); break;
+    case 'close': closeSheet(); break;
+    case 'open': openRec(t.dataset.id); break;
+    case 'rec-del': {
+      if (t.dataset.sure) { await patchRec(t.dataset.id, {void: true, voidBy: S.setup.team, voidAt: nowIso()}); closeSheet(); toast('Count removed'); }
+      else { t.dataset.sure = '1'; t.textContent = 'Tap again to remove'; t.classList.add('bad'); }
+      break;
+    }
+    case 'rec-restore': await patchRec(t.dataset.id, {void: false, voidBy: '', voidAt: ''}); closeSheet(); toast('Count restored'); break;
+    case 'rec-qty': recQtyEditor(t.dataset.id); break;
+    case 'rec-qty-save': {
+      const r = S.recs.get(t.dataset.id); const q = Number(($('#recEdit').dataset.q) || 0);
+      if (!(q > 0)) { toast('Enter the new quantity', true); break; }
+      const nq = Math.round(q * 100) / 100;
+      await patchRec(r.id, {qty: nq, edits: (r.edits || []).concat([{from: r.qty, to: nq, by: S.setup.team, at: nowIso()}])}); closeSheet(); toast('Quantity changed'); break;
+    }
+    case 'lf': S.listFilter = t.dataset.f; S.listN = 150; renderList(); break;
+    case 'listmore': S.listN += 150; renderList(); break;
+    case 'findall': S.findAll = !S.findAll; renderFind(); break;
+    case 'send': openSend(); break;
+    case 'share': sharePart(+t.dataset.n); break;
+    case 'sendall': S.sendAll = !S.sendAll; await prepareSend(); drawSend(); break;
+    case 'zip': saveZip(); break;
+    case 'change-count': showLoad(); break;
+    case 'pickcount': S.pickCount = t.dataset.id; renderLoad(); break;
+    case 'unlock': unlock(); break;
+    case 'load-cancel': setTab('count'); break;
+  }
+});
+document.addEventListener('input', e => {
+  const id = e.target.id;
+  if (id === 'listQ') { S.listQ = e.target.value; const pos = e.target.selectionStart; renderList(); const n = $('#listQ'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (err) { /* ignore */ } }
+  if (id === 'findQ') { S.findQ = e.target.value; const pos = e.target.selectionStart; renderFind(); const n = $('#findQ'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (err) { /* ignore */ } }
+  if (id === 'sTeam' || id === 'sStore' || id === 'sDev') {
+    if (id === 'sTeam') S.setup.team = e.target.value.trim();
+    if (id === 'sStore') S.setup.store = e.target.value.trim();
+    if (id === 'sDev') S.setup.device = e.target.value.trim() || S.setup.device;
+    LS.set('setup', S.setup); renderHead();
+  }
+});
+document.addEventListener('change', e => {
+  if (e.target.dataset && e.target.dataset.g) {
+    const all = [...document.querySelectorAll('#v-setup [data-g]')].filter(x => x.checked).map(x => x.dataset.g);
+    S.setup.groups = all.length ? all : null; LS.set('setup', S.setup); renderTabs();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sheetOpen()) closeSheet();
+  if (e.key === 'Enter' && sheetOpen() && e.target.id === 'aArea') { e.preventDefault(); $('[data-act="area-set"]').click(); }
+  if (e.key === 'Enter' && e.target.id === 'code') { e.preventDefault(); unlock(); }
+});
+function setTab(tab) {
+  S.tab = tab;
+  $('#v-load').hidden = true; $('#top').hidden = false;
+  for (const v of ['count', 'list', 'find', 'setup']) $('#v-' + v).hidden = v !== tab;
+  if (S.typing) stopTyping();
+  renderAll();
+  if (tab === 'count') setTimeout(focusScan, 30); else { try { scan.blur(); } catch (e) { /* ignore */ } }
+}
+
+/* ---------- start ---------- */
+async function start() {
+  if ('serviceWorker' in navigator) {
+    const had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) toast('App updated'); });
+  }
+  const id = await Store.get('meta', 'current');
+  const list = id ? await Store.get('meta', 'list:' + id) : null;
+  if (list) await useList(list); else showLoad();
+  if (navigator.storage && navigator.storage.persisted) { try { S.persisted = await navigator.storage.persisted(); } catch (e) { /* ignore */ } }
+}
+start();
+})();
+</script>
+</body>
+</html>
