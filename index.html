@@ -277,7 +277,7 @@ h2{font:700 24px/1.1 var(--f-num);letter-spacing:.02em;margin:2px 0 4px;text-wra
 <script>
 (() => {
 'use strict';
-const APPV = '2.0';
+const APPV = '2.0.1';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const norm = s => String(s ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
@@ -647,12 +647,12 @@ async function makeZip(entries) {
 const photoName = (r, j, ph) => `${r.id}-${j + 1}-${ph.kind}.jpg`;
 function csvFor(rs) {
   const head = ['Time', 'Team', 'Store', 'Area', 'Device', 'Product code', 'Description', 'Grouping', 'Batch', 'Batch as scanned', 'Product as scanned', 'Match',
-    'K8 page', 'K8 line', 'Quantity', 'Unit', 'Flags', 'Note', 'Photos', 'Removed', 'Changed', 'Edits', 'Id', 'Count'];
+    'K8 page', 'K8 line', 'K8 line id', 'K8 batch', 'Quantity', 'Unit', 'Flags', 'Note', 'Photos', 'Removed', 'Changed', 'Edits', 'Id', 'Count'];
   const cell = v => { const s = String(v ?? ''); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const rows = rs.map(r => {
     const p = String(r.line || '').split('-');
     return [r.at, r.team, r.store, r.area, r.device, r.code, r.desc, gname(r.group), r.batch, r.scanned && r.scanned.batch, r.scanned && r.scanned.product, r.match,
-      p.length === 3 ? +p[1] : '', p.length === 3 ? +p[2] : '', r.qty, r.unit, (r.flags || []).join(' '), r.note,
+      p.length === 3 ? +p[1] : '', p.length === 3 ? +p[2] : '', r.line || '', r.k8batch || '', r.qty, r.unit, (r.flags || []).join(' '), r.note,
       (r.photos || []).map((ph, j) => photoName(r, j, ph)).join(' '), r.void ? 'yes' : '', r.changedAt,
       (r.edits || []).map(e => `${e.from}>${e.to} ${e.by} ${e.at}`).join('; '), r.id, r.count];
   });

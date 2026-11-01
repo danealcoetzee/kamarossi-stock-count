@@ -1,6 +1,6 @@
 /* Kamarossi Stock Count: keeps the app working without signal.
    Pages and count lists: network first (3.5 s), then the saved copy. Fonts, icons and logo: saved copy first. */
-const VERSION = 'kamcount-2.0.0';
+const VERSION = 'kamcount-2.0.1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './logo.jpg', './lists/index.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',
   './fonts/barlow-latin-400-normal.woff2', './fonts/barlow-latin-500-normal.woff2', './fonts/barlow-latin-600-normal.woff2',
